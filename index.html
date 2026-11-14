@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<title>PasoGuía RA</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%230f172a%22/%3E%3Cpath d=%22M6 24h20M8 18h16M10 12h12%22 stroke=%22%2325D366%22 stroke-width=%223%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f172a; --panel:#111c33; --card:#16223d; --line:#22304f;
+  --txt:#e5ecf6; --mut:#93a3bd; --ok:#25D366; --warn:#f5b301; --bad:#ef4444; --azul:#38bdf8;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,-apple-system,sans-serif;overflow:hidden}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+#app{display:flex;flex-direction:column;height:100dvh}
+#vista{position:relative;flex:1 1 55%;min-height:0;background:#000;overflow:hidden}
+#vista canvas{display:block;width:100%;height:100%}
+#lienzoCam{position:absolute;inset:0;display:none}
+#estado{position:absolute;top:calc(10px + env(safe-area-inset-top));left:10px;right:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
+.chip{padding:7px 12px;border-radius:999px;font-weight:800;font-size:13px;letter-spacing:.04em;background:rgba(15,23,42,.8);border:1px solid var(--line);backdrop-filter:blur(6px)}
+.chip.ok{color:var(--ok);border-color:var(--ok)}
+.chip.bad{color:#fff;background:var(--bad);border-color:var(--bad)}
+.chip.ayuda{color:#0f172a;background:var(--ok);border-color:var(--ok)}
+.chip.quieto{color:var(--mut)}
+#fiBox{text-align:right}
+#fiBox .n{font-size:22px;font-weight:800}
+#fiBox .l{font-size:10px;color:var(--mut)}
+#aviso{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:clamp(26px,8vw,54px);font-weight:800;color:var(--ok);text-shadow:0 0 18px rgba(0,0,0,.9);opacity:0;transition:opacity .25s;pointer-events:none;text-align:center}
+#panel{flex:0 0 auto;max-height:48%;overflow-y:auto;background:var(--panel);border-top:1px solid var(--line);padding:10px 12px calc(12px + env(safe-area-inset-bottom))}
+.fila{display:flex;gap:8px;margin-bottom:8px}
+.fila>*{flex:1}
+button{font:inherit;font-weight:600;font-size:14px;color:var(--txt);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 8px;min-height:46px;cursor:pointer}
+button.on{background:var(--ok);color:#0f172a;border-color:var(--ok)}
+button.rojo{background:var(--bad);border-color:var(--bad);color:#fff}
+button:active{transform:scale(.97)}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg button{flex:1;border:0;background:transparent;min-height:38px;padding:8px 4px;font-size:13px}
+.seg button.on{background:var(--ok);color:#0f172a}
+#graf{width:100%;height:120px;display:block;background:#0b1326;border:1px solid var(--line);border-radius:10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}
+.stats div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px;text-align:center}
+.stats b{display:block;font-size:18px}
+.stats span{font-size:10.5px;color:var(--mut)}
+details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-top:6px}
+summary{font-weight:600;cursor:pointer}
+label.aj{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;margin:9px 0}
+label.aj input[type=range]{flex:1;accent-color:var(--ok)}
+label.aj output{min-width:52px;text-align:right}
+.nota{font-size:11.5px;color:var(--mut);line-height:1.45}
+#inicio{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;justify-content:center;padding:28px;z-index:9;gap:14px}
+#inicio h1{margin:0;font-size:34px}
+#inicio h1 em{font-style:normal;color:var(--ok)}
+#inicio p{margin:0;color:var(--mut);line-height:1.5}
+#inicio button{background:var(--ok);color:#0f172a;font-size:18px;font-weight:800;padding:16px}
+body.gafas #panel{display:none}
+body.gafas #estado,body.gafas #aviso{display:none}
+#salirGafas{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:none;z-index:3;background:rgba(15,23,42,.75)}
+body.gafas #salirGafas{display:block}
+body.gafas #vista::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;background:#000}
+</style>
+</head>
+<body>
+<div id="inicio">
+  <h1>PasoGuía <em>RA</em></h1>
+  <p>Prototipo de gafas y audífonos que ayudan a caminar a personas con enfermedad de Parkinson. Detectan el <b>congelamiento de la marcha</b> con el acelerómetro y responden con <b>líneas en el piso</b>, un <b>metrónomo</b> y una <b>voz</b>.</p>
+  <p class="nota">Proyecto académico de ingeniería biomédica. No es un dispositivo médico.</p>
+  <button id="btnIniciar">Iniciar</button>
+  <p class="nota">Use audífonos para oír el metrónomo. En el celular se le pedirá permiso para el sensor de movimiento y la cámara.</p>
+</div>
+
+<div id="app">
+  <div id="vista">
+    <canvas id="lienzo3d"></canvas>
+    <canvas id="lienzoCam"></canvas>
+    <div id="estado">
+      <div id="chip" class="chip quieto">DETENIDO</div>
+      <div id="fiBox" class="chip"><div class="n mono" id="fiNum">0.00</div><div class="l">ÍNDICE DE CONGELAMIENTO</div></div>
+    </div>
+    <div id="aviso">PASO LARGO</div>
+    <button id="salirGafas">Salir de modo gafas</button>
+  </div>
+
+  <div id="panel">
+    <div class="fila">
+      <div class="seg" id="segVista"><button data-v="3d" class="on">Simulación 3D</button><button data-v="cam">Cámara RA</button></div>
+    </div>
+    <div class="fila">
+      <div class="seg" id="segFuente"><button data-f="sim" class="on">Señal simulada</button><button data-f="sensor">Sensor del celular</button></div>
+    </div>
+    <div class="fila">
+      <button id="btnCongelar" class="rojo">Simular congelamiento</button>
+      <button id="btnAyuda" class="on">Ayuda: ACTIVA</button>
+    </div>
+    <div class="fila">
+      <button id="btnPedir">Pedir ayuda</button>
+      <button id="btnGafas">Modo gafas</button>
+      <button id="btnPausa">Pausa</button>
+    </div>
+    <canvas id="graf"></canvas>
+    <div class="stats">
+      <div><b class="mono" id="stN">0</b><span>episodios</span></div>
+      <div><b class="mono" id="stSin">–</b><span>duración media sin ayuda</span></div>
+      <div><b class="mono" id="stCon">–</b><span>duración media con ayuda</span></div>
+    </div>
+    <div class="stats">
+      <div><b class="mono" id="stLat">–</b><span>tiempo de detección</span></div>
+      <div><b class="mono" id="stCad">–</b><span>pasos por minuto</span></div>
+      <div><b class="mono" id="stFs">–</b><span>muestreo (Hz)</span></div>
+    </div>
+    <details>
+      <summary>Ajustes</summary>
+      <label class="aj">Metrónomo (pasos/min)<input type="range" id="ajBpm" min="70" max="130" value="100"><output class="mono" id="oBpm">100</output></label>
+      <label class="aj">Largo del paso (cm)<input type="range" id="ajPaso" min="35" max="80" value="60"><output class="mono" id="oPaso">60</output></label>
+      <label class="aj">Umbral del índice<input type="range" id="ajUmbral" min="1" max="4" step="0.1" value="2"><output class="mono" id="oUmbral">2.0</output></label>
+      <label class="aj">Energía mínima<input type="range" id="ajEmin" min="0.005" max="0.3" step="0.005" value="0.03"><output class="mono" id="oEmin">0.030</output></label>
+      <label class="aj">Voz<input type="checkbox" id="ajVoz" checked></label>
+      <label class="aj">Vibración (Android)<input type="checkbox" id="ajVib" checked></label>
+      <label class="aj">Congelamiento automático en puertas<input type="checkbox" id="ajAuto" checked></label>
+      <p class="nota">Índice de congelamiento (Moore et al., 2008) = potencia de la aceleración entre 3 y 8 Hz ÷ potencia entre 0,5 y 3 Hz, sobre una ventana de 2,56 s (128 muestras a 50 Hz). Se declara congelamiento si el índice supera el umbral, hay movimiento suficiente (energía mínima) y se mantiene 0,75 s.</p>
+      <p class="nota">Prueba con el sensor: camine con el celular en la mano (índice bajo). Luego haga vibrar el celular rápido en el sitio, como un temblor de piernas (índice alto): se activan las líneas y el metrónomo.</p>
+    </details>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from './three.module.min.js';
+
+/* ---------------- estado general ---------------- */
+const $ = id => document.getElementById(id);
+const cfg = { bpm:100, paso:0.60, umbral:2.0, emin:0.03, voz:true, vib:true, auto:true };
+const S = {
+  vista:'3d', fuente:'sim', ayudaOn:true, pausa:false, gafas:false,
+  // verdad de la simulación
+  simCong:false, simCongIni:0, simCongFin:0, simCongConAyuda:false,
+  // detector
+  detCong:false, detConsec:0, detBaja:0, fi:0, energia:0,
+  cue:false, cueIni:0, cueManualHasta:0,
+  episodios:[], latencias:[], tRef:performance.now(),
+  ultimaPuerta:-1, fs:0, cadencia:0,
+};
+// reloj de la simulación: avanza con cada cuadro (no corre en pausa ni con la pestaña oculta)
+let reloj = 0; const ahora = () => reloj;
+
+/* ---------------- audio: metrónomo y voz ---------------- */
+let actx=null, proxBeat=0, beatN=0;
+function iniciarAudio(){
+  if(actx) return;
+  actx = new (window.AudioContext||window.webkitAudioContext)();
+}
+function clic(t, fuerte){
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type='square'; o.frequency.value = fuerte?1500:1000;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(fuerte?0.5:0.35,t+0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.06);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t+0.08);
+}
+function programarMetronomo(){
+  if(!actx) return;
+  const per = 60/cfg.bpm;
+  if(!S.cue){ proxBeat = actx.currentTime+0.05; return; }
+  while(proxBeat < actx.currentTime+0.15){
+    clic(proxBeat, beatN%2===0);
+    const retardo = Math.max(0,(proxBeat-actx.currentTime)*1000);
+    if(cfg.vib && navigator.vibrate) setTimeout(()=>navigator.vibrate(35), retardo);
+    setTimeout(()=>{ faseLineas = 0; }, retardo);
+    proxBeat += per; beatN++;
+  }
+}
+let vozES=null;
+function cargarVoz(){
+  const vs = speechSynthesis.getVoices();
+  vozES = vs.find(v=>/es[-_](CO|MX|US|419)/i.test(v.lang)) || vs.find(v=>/^es/i.test(v.lang)) || null;
+}
+if('speechSynthesis' in window){ cargarVoz(); speechSynthesis.onvoiceschanged = cargarVoz; }
+function decir(txt){
+  if(!cfg.voz || !('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(txt);
+  u.lang = vozES?vozES.lang:'es-ES'; if(vozES) u.voice=vozES; u.rate=1; u.volume=1;
+  speechSynthesis.speak(u);
+}
+
+/* ---------------- señal y detector (índice de congelamiento) ---------------- */
+const FS = 50, N = 128;
+const buf = new Float32Array(N); let bufN=0, bufPos=0;
+const hist = []; // {t, fi, cong, cue}
+const sen = [];  // últimas muestras para graficar
+function pushMuestra(v){
+  buf[bufPos]=v; bufPos=(bufPos+1)%N; if(bufN<N) bufN++;
+  sen.push(v); if(sen.length>FS*6) sen.shift();
+}
+const hann = Float32Array.from({length:N},(_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/(N-1)));
+function calcularFI(){
+  if(bufN<N) return;
+  // ventana ordenada y sin media
+  const x = new Float32Array(N); let m=0;
+  for(let i=0;i<N;i++){ x[i]=buf[(bufPos+i)%N]; m+=x[i]; }
+  m/=N; for(let i=0;i<N;i++) x[i]=(x[i]-m)*hann[i];
+  const df = FS/N; let pLoc=0, pFrz=0;
+  const kMax = Math.ceil(8/df);
+  for(let k=1;k<=kMax;k++){
+    const f=k*df; let re=0, im=0;
+    for(let n=0;n<N;n++){ const a=2*Math.PI*k*n/N; re+=x[n]*Math.cos(a); im-=x[n]*Math.sin(a); }
+    const p = (re*re+im*im)*2/(N*N)/0.375; // 0.375 = corrección de energía de Hann
+    if(f>=0.5 && f<3) pLoc+=p; else if(f>=3 && f<=8) pFrz+=p;
+  }
+  S.energia = pLoc+pFrz;
+  S.fi = pFrz/Math.max(pLoc,1e-6);
+  // cadencia aproximada: pico dominante en 0.5–3 Hz
+  const pk=[]; const k0=Math.ceil(0.8/df)-1, k1=Math.floor(2.6/df)+1;
+  for(let k=k0;k<=k1;k++){
+    let re=0,im=0; for(let n=0;n<N;n++){const a=2*Math.PI*k*n/N; re+=x[n]*Math.cos(a); im-=x[n]*Math.sin(a);}
+    pk.push(re*re+im*im);
+  }
+  let iM=1; for(let i=1;i<pk.length-1;i++) if(pk[i]>pk[iM]) iM=i;
+  // interpolación parabólica del pico para afinar la cadencia
+  const a0=pk[iM-1], a1=pk[iM], a2=pk[iM+1], den=a0-2*a1+a2;
+  const delta = den!==0 ? 0.5*(a0-a2)/den : 0;
+  const fMejor = (k0+iM+Math.max(-0.5,Math.min(0.5,delta)))*df;
+  S.cadencia = (S.energia>cfg.emin && S.fi<cfg.umbral) ? fMejor*60 : 0;
+  decidir();
+}
+function decidir(){
+  const t=ahora();
+  const sobre = S.fi>cfg.umbral && S.energia>cfg.emin;
+  if(!S.detCong){
+    S.detConsec = sobre ? S.detConsec+1 : 0;
+    if(S.detConsec>=3){ // 3 × 0,25 s = 0,75 s sostenido
+      S.detCong=true; S.detBaja=0;
+      if(S.fuente==='sim' && S.simCong) S.latencias.push(t-S.simCongIni);
+      if(S.fuente==='sensor') S.simCongIni=t;
+      if(S.ayudaOn) activarCue();
+    }
+  } else {
+    S.detBaja = (S.fi<cfg.umbral*0.7 || S.energia<cfg.emin) ? S.detBaja+1 : 0;
+    if(S.detBaja>=4){
+      S.detCong=false;
+      if(S.fuente==='sensor') S.episodios.push({dur:t-S.simCongIni, ayuda:S.ayudaOn});
+    }
+  }
+  hist.push({t, fi:S.fi, cong:S.fuente==='sim'?S.simCong:S.detCong, det:S.detCong, cue:S.cue});
+  while(hist.length && hist[0].t < t-30) hist.shift();
+}
+function activarCue(manual){
+  if(!S.cue){
+    S.cue=true; S.cueIni=ahora(); beatN=0;
+    if(actx) proxBeat=actx.currentTime+0.05;
+    colocarLineas();
+    decir('Paso largo. Uno, dos.');
+    mostrarAviso('PASO LARGO');
+  }
+  if(manual) S.cueManualHasta = ahora()+8;
+}
+function apagarCue(){ S.cue=false; ocultarLineas(); }
+function mostrarAviso(t){ const a=$('aviso'); a.textContent=t; a.style.opacity=1; clearTimeout(a._t); a._t=setTimeout(()=>a.style.opacity=0,1600); }
+
+/* --- sensor del celular: remuestreo uniforme a 50 Hz --- */
+let sensT0=null, sensUltT=0, sensUltV=0, sensProx=0, sensCnt=0, sensCntT=0;
+function onMotion(e){
+  const a = e.accelerationIncludingGravity || e.acceleration; if(!a || a.x==null) return;
+  const t = performance.now()/1000;
+  const v = Math.hypot(a.x||0,a.y||0,a.z||0);
+  sensCnt++; if(t-sensCntT>=1){ S.fs = sensCnt/(t-sensCntT); sensCnt=0; sensCntT=t; }
+  if(S.fuente!=='sensor' || S.pausa){ sensUltT=t; sensUltV=v; sensProx=t; return; }
+  if(sensT0===null){ sensT0=t; sensUltT=t; sensUltV=v; sensProx=t; return; }
+  while(sensProx<=t){
+    const r = (sensProx-sensUltT)/Math.max(t-sensUltT,1e-4);
+    pushMuestra(sensUltV + (v-sensUltV)*Math.min(Math.max(r,0),1));
+    sensProx += 1/FS;
+  }
+  sensUltT=t; sensUltV=v;
+}
+async function pedirSensor(){
+  try{
+    if(typeof DeviceMotionEvent!=='undefined' && typeof DeviceMotionEvent.requestPermission==='function'){
+      const r = await DeviceMotionEvent.requestPermission(); if(r!=='granted') throw new Error('denegado');
+    }
+    window.addEventListener('devicemotion', onMotion);
+    return true;
+  }catch(err){ alert('No se pudo usar el sensor de movimiento: '+err.message); return false; }
+}
+
+/* --- señal simulada coherente con la simulación 3D --- */
+let simT=0, ruidoSemilla=1;
+function ruido(){ ruidoSemilla=(ruidoSemilla*16807)%2147483647; return (ruidoSemilla/2147483647-0.5); }
+function muestraSimulada(estado){
+  simT += 1/FS;
+  const fPaso = cfg.bpm/60/1.0; // frecuencia de pasos (Hz)
+  if(estado==='camina') return 9.81 + 1.3*Math.sin(2*Math.PI*fPaso*simT) + 0.45*Math.sin(2*Math.PI*2*fPaso*simT+0.6) + 0.12*ruido();
+  if(estado==='congelado') return 9.81 + 0.55*Math.sin(2*Math.PI*5.8*simT) + 0.25*Math.sin(2*Math.PI*7.1*simT+1) + 0.12*Math.sin(2*Math.PI*1.1*simT) + 0.1*ruido();
+  return 9.81 + 0.02*ruido();
+}
+
+/* ---------------- escena 3D: pasillo en primera persona ---------------- */
+const lienzo = $('lienzo3d');
+const renderer = new THREE.WebGLRenderer({canvas:lienzo, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const escena = new THREE.Scene();
+escena.background = new THREE.Color(0xdfe6ee);
+escena.fog = new THREE.Fog(0xdfe6ee, 8, 34);
+const cam = new THREE.PerspectiveCamera(70,1,0.05,80);
+const estereo = new THREE.StereoCamera(); estereo.eyeSep = 0.064;
+escena.add(new THREE.HemisphereLight(0xffffff,0x8899aa,1.1));
+const sol = new THREE.DirectionalLight(0xffffff,0.6); sol.position.set(1,4,2); escena.add(sol);
+
+const ANCHO=2.4, ALTO=2.7, PERIODO=12, LARGO=420;
+function texturaBaldosa(){
+  const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+  g.fillStyle='#c9c3b8'; g.fillRect(0,0,128,128);
+  g.strokeStyle='#a9a294'; g.lineWidth=3; g.strokeRect(0,0,128,128);
+  for(let i=0;i<300;i++){ g.fillStyle=`rgba(0,0,0,${Math.random()*0.05})`; g.fillRect(Math.random()*128,Math.random()*128,2,2); }
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(ANCHO/0.6,LARGO/0.6); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+const piso = new THREE.Mesh(new THREE.PlaneGeometry(ANCHO,LARGO), new THREE.MeshLambertMaterial({map:texturaBaldosa()}));
+piso.rotation.x=-Math.PI/2; piso.position.z=-LARGO/2+5; escena.add(piso);
+const matPared = new THREE.MeshLambertMaterial({color:0xf1efe9});
+const matZocalo = new THREE.MeshLambertMaterial({color:0x6b7a8f});
+for(const s of [-1,1]){
+  const p=new THREE.Mesh(new THREE.PlaneGeometry(LARGO,ALTO),matPared);
+  p.rotation.y = -s*Math.PI/2; p.position.set(s*ANCHO/2,ALTO/2,-LARGO/2+5); escena.add(p);
+  const z=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.12,LARGO),matZocalo);
+  z.position.set(s*(ANCHO/2-0.01),0.06,-LARGO/2+5); escena.add(z);
+}
+const techo=new THREE.Mesh(new THREE.PlaneGeometry(ANCHO,LARGO),new THREE.MeshLambertMaterial({color:0xfafafa}));
+techo.rotation.x=Math.PI/2; techo.position.set(0,ALTO,-LARGO/2+5); escena.add(techo);
+// puertas (marcos) cada PERIODO metros: lugar típico de congelamiento
+const matMarco=new THREE.MeshLambertMaterial({color:0x7c5a3a});
+const puertasZ=[];
+for(let z=-PERIODO; z>-LARGO+10; z-=PERIODO){
+  puertasZ.push(z);
+  const g=new THREE.Group();
+  const lado=new THREE.BoxGeometry(0.18,2.1,0.2);
+  const a=new THREE.Mesh(lado,matMarco); a.position.set(-0.55,1.05,0);
+  const b=new THREE.Mesh(lado,matMarco); b.position.set(0.55,1.05,0);
+  const arriba=new THREE.Mesh(new THREE.BoxGeometry(1.28,0.18,0.2),matMarco); arriba.position.set(0,2.19,0);
+  const muroI=new THREE.Mesh(new THREE.BoxGeometry(ANCHO/2-0.64,ALTO,0.2),matPared); muroI.position.set(-(0.64+(ANCHO/2-0.64)/2),ALTO/2,0);
+  const muroD=muroI.clone(); muroD.position.x*=-1;
+  const dintel=new THREE.Mesh(new THREE.BoxGeometry(1.1,ALTO-2.28,0.2),matPared); dintel.position.set(0,2.28+(ALTO-2.28)/2,0);
+  g.add(a,b,arriba,muroI,muroD,dintel); g.position.z=z; escena.add(g);
+  const luz=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.03,1.2),new THREE.MeshBasicMaterial({color:0xffffff}));
+  luz.position.set(0,ALTO-0.02,z+PERIODO/2); escena.add(luz);
+}
+// líneas de ayuda en el piso (verdes, fijas en el mundo)
+const NLIN=10;
+const matLinea=new THREE.MeshBasicMaterial({color:0x25D366, transparent:true, opacity:0.95});
+const lineas=[];
+for(let i=0;i<NLIN;i++){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.06),matLinea);
+  m.rotation.x=-Math.PI/2; m.position.y=0.006; m.visible=false; escena.add(m); lineas.push(m);
+}
+let zCam=0, zLineaSig=0;
+function colocarLineas(){
+  zLineaSig = zCam - cfg.paso*0.8;
+  for(const l of lineas){ l.position.z=zLineaSig; l.visible=true; zLineaSig-=cfg.paso; }
+}
+function ocultarLineas(){ for(const l of lineas) l.visible=false; }
+function reciclarLineas(){
+  for(const l of lineas){
+    if(l.visible && l.position.z > zCam+0.3){ l.position.z=zLineaSig; zLineaSig-=cfg.paso; }
+  }
+}
+
+/* ---------------- cámara RA (celular) ---------------- */
+const lienzoCam=$('lienzoCam'), gc=lienzoCam.getContext('2d');
+const video=document.createElement('video'); video.playsInline=true; video.muted=true; video.setAttribute('playsinline','');
+let camLista=false, faseLineas=0;
+async function encenderCamara(){
+  if(camLista) return true;
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+    video.srcObject=st; await video.play(); camLista=true; return true;
+  }catch(err){ alert('No se pudo abrir la cámara: '+err.message+'\nLa cámara necesita una página https.'); return false; }
+}
+function dibujarOjoCam(x0,w,h){
+  // video recortado tipo "cover"
+  if(camLista && video.videoWidth){
+    const vr=video.videoWidth/video.videoHeight, rr=w/h;
+    let sw=video.videoWidth, sh=video.videoHeight, sx=0, sy=0;
+    if(vr>rr){ sw=sh*rr; sx=(video.videoWidth-sw)/2; } else { sh=sw/rr; sy=(video.videoHeight-sh)/2; }
+    gc.drawImage(video,sx,sy,sw,sh,x0,0,w,h);
+  } else { gc.fillStyle='#1e293b'; gc.fillRect(x0,0,w,h); gc.fillStyle='#93a3bd'; gc.font='16px Inter'; gc.textAlign='center'; gc.fillText('Cámara apagada',x0+w/2,h/2); }
+  if(!S.cue) return;
+  // líneas en perspectiva sobre el piso: se acercan un paso por cada golpe del metrónomo
+  const horizonte=h*0.30, d0=0.55, alt=h-horizonte;
+  const avance = faseLineas; // 0..1 dentro del golpe
+  for(let i=0;i<9;i++){
+    const d = d0 + (i+1-avance)*cfg.paso*1.3;
+    const esc = d0/d;
+    const y = horizonte + alt*esc;
+    const ancho = w*0.95*esc*1.2;
+    const grosor = Math.max(2, 26*esc);
+    gc.fillStyle=`rgba(37,211,102,${0.95-i*0.07})`;
+    gc.fillRect(x0+(w-ancho)/2, y-grosor/2, ancho, grosor);
+  }
+}
+function dibujarCam(){
+  const w=lienzoCam.width, h=lienzoCam.height;
+  gc.clearRect(0,0,w,h);
+  if(S.gafas){ dibujarOjoCam(0,w/2,h); dibujarOjoCam(w/2,w/2,h); }
+  else dibujarOjoCam(0,w,h);
+}
+
+/* ---------------- gráfica ---------------- */
+const graf=$('graf'), gg=graf.getContext('2d');
+function dibujarGrafica(){
+  const w=graf.width, h=graf.height, dpr=Math.min(devicePixelRatio,2);
+  gg.clearRect(0,0,w,h);
+  const h1=h*0.42;
+  // señal (6 s)
+  gg.strokeStyle='#38bdf8'; gg.lineWidth=1.5*dpr; gg.beginPath();
+  if(sen.length>1){
+    let mn=Infinity,mx=-Infinity; for(const v of sen){mn=Math.min(mn,v);mx=Math.max(mx,v);}
+    const r=Math.max(mx-mn,0.6), c=(mx+mn)/2;
+    sen.forEach((v,i)=>{ const x=i/(FS*6)*w, y=h1/2-(v-c)/r*(h1*0.9); i?gg.lineTo(x,y):gg.moveTo(x,y); });
+  }
+  gg.stroke();
+  gg.fillStyle='#93a3bd'; gg.font=`${10*dpr}px Inter`; gg.textAlign='left';
+  gg.fillText('Aceleración (últimos 6 s)',6*dpr,12*dpr);
+  // índice (30 s)
+  const y0=h1+4*dpr, h2=h-y0-2*dpr, t=ahora(), fiMax=6;
+  for(const p of hist){
+    const x=(1-(t-p.t)/30)*w;
+    if(p.cong){ gg.fillStyle='rgba(239,68,68,.22)'; gg.fillRect(x,y0,w/120+1,h2); }
+    if(p.cue){ gg.fillStyle='rgba(37,211,102,.9)'; gg.fillRect(x,h-4*dpr,w/120+1,3*dpr); }
+  }
+  const yU=y0+h2-(cfg.umbral/fiMax)*h2;
+  gg.strokeStyle='#f5b301'; gg.setLineDash([5*dpr,4*dpr]); gg.lineWidth=1*dpr; gg.beginPath(); gg.moveTo(0,yU); gg.lineTo(w,yU); gg.stroke(); gg.setLineDash([]);
+  gg.strokeStyle='#e5ecf6'; gg.lineWidth=1.8*dpr; gg.beginPath();
+  hist.forEach((p,i)=>{ const x=(1-(t-p.t)/30)*w, y=y0+h2-Math.min(p.fi,fiMax)/fiMax*h2; i?gg.lineTo(x,y):gg.moveTo(x,y); });
+  gg.stroke();
+  gg.fillStyle='#93a3bd'; gg.fillText('Índice de congelamiento (30 s) · rojo: congelamiento · verde: ayuda',6*dpr,y0+11*dpr);
+  gg.fillStyle='#f5b301'; gg.textAlign='right'; gg.fillText('umbral',w-4*dpr,yU-3*dpr);
+}
+
+/* ---------------- interfaz ---------------- */
+function ajustarTam(){
+  const v=$('vista'), w=v.clientWidth, h=v.clientHeight, dpr=Math.min(devicePixelRatio,2);
+  renderer.setSize(w,h,false);
+  lienzoCam.width=w*dpr; lienzoCam.height=h*dpr;
+  graf.width=graf.clientWidth*dpr; graf.height=graf.clientHeight*dpr;
+  cam.aspect = S.gafas ? (w/2)/h : w/h; cam.updateProjectionMatrix();
+}
+addEventListener('resize',()=>setTimeout(ajustarTam,50));
+
+function segmento(id,attr,fn){
+  $(id).querySelectorAll('button').forEach(b=>b.onclick=async()=>{
+    const ok = await fn(b.dataset[attr]); if(ok===false) return;
+    $(id).querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  });
+}
+segmento('segVista','v',async v=>{
+  if(v==='cam' && !(await encenderCamara())) return false;
+  S.vista=v; lienzo.style.display=v==='3d'?'block':'none'; lienzoCam.style.display=v==='cam'?'block':'none';
+  if(v==='cam' && S.fuente==='sim'){ /* en cámara lo natural es el sensor real */ }
+});
+segmento('segFuente','f',async f=>{
+  if(f==='sensor' && !(await pedirSensor())) return false;
+  S.fuente=f; bufN=0; S.detCong=false; S.detConsec=0; S.simCong=false; apagarCue(); sen.length=0;
+  $('btnCongelar').style.display = f==='sim' ? '' : 'none';
+});
+$('btnCongelar').onclick=()=>iniciarCongelamiento();
+$('btnAyuda').onclick=()=>{
+  S.ayudaOn=!S.ayudaOn;
+  $('btnAyuda').classList.toggle('on',S.ayudaOn);
+  $('btnAyuda').textContent = S.ayudaOn ? 'Ayuda: ACTIVA' : 'Ayuda: APAGADA';
+  if(!S.ayudaOn) apagarCue();
+};
+$('btnPedir').onclick=()=>{ iniciarAudio(); activarCue(true); };
+$('btnPausa').onclick=()=>{ S.pausa=!S.pausa; $('btnPausa').textContent=S.pausa?'Seguir':'Pausa'; $('btnPausa').classList.toggle('on',S.pausa); };
+$('btnGafas').onclick=async()=>{
+  S.gafas=true; document.body.classList.add('gafas');
+  try{ await document.documentElement.requestFullscreen?.(); await screen.orientation?.lock?.('landscape'); }catch(e){}
+  setTimeout(ajustarTam,300);
+};
+$('salirGafas').onclick=async()=>{
+  S.gafas=false; document.body.classList.remove('gafas');
+  try{ screen.orientation?.unlock?.(); if(document.fullscreenElement) await document.exitFullscreen(); }catch(e){}
+  setTimeout(ajustarTam,300);
+};
+function enlazar(id,out,clave,fmt,conv=x=>x){
+  const el=$(id); const f=()=>{ cfg[clave]=conv(+el.value); $(out).textContent=fmt(+el.value); }; el.oninput=f; f();
+}
+enlazar('ajBpm','oBpm','bpm',v=>v);
+enlazar('ajPaso','oPaso','paso',v=>v,v=>v/100);
+enlazar('ajUmbral','oUmbral','umbral',v=>v.toFixed(1));
+enlazar('ajEmin','oEmin','emin',v=>v.toFixed(3));
+for(const [id,k] of [['ajVoz','voz'],['ajVib','vib'],['ajAuto','auto']]){ $(id).onchange=e=>cfg[k]=e.target.checked; }
+
+$('btnIniciar').onclick=()=>{
+  iniciarAudio(); decir('PasoGuía lista');
+  $('inicio').style.display='none'; ajustarTam();
+};
+
+/* ---------------- simulación de la marcha ---------------- */
+function iniciarCongelamiento(){
+  if(S.fuente!=='sim' || S.simCong) return;
+  S.simCong=true; S.simCongIni=ahora(); S.simCongConAyuda=S.ayudaOn;
+  S.simCongFin = S.simCongIni + 7 + Math.random()*4; // sin ayuda: 7–11 s
+}
+function actualizarSim(dt){
+  const t=ahora();
+  if(S.simCong){
+    // con ayuda: se destraba 1,5–2,5 s después de aparecer las líneas
+    if(S.cue && S.ayudaOn){ const fin=S.cueIni+1.5+((S.cueIni*997)%1); if(fin<S.simCongFin) S.simCongFin=fin; }
+    if(t>=S.simCongFin){
+      S.episodios.push({dur:t-S.simCongIni, ayuda:S.simCongConAyuda||S.cue});
+      S.simCong=false;
+      if(S.cue) decir('Muy bien, siga caminando');
+    }
+  }
+  const estado = S.simCong ? 'congelado' : 'camina';
+  // muestras a 50 Hz
+  acumMuestras += dt*FS;
+  while(acumMuestras>=1){ pushMuestra(muestraSimulada(estado)); acumMuestras--; }
+  // avance de la persona
+  if(estado==='camina') zCam -= dt * cfg.paso*cfg.bpm/60;
+  // congelamiento automático al llegar a una puerta
+  if(cfg.auto && !S.simCong){
+    const idx = puertasZ.findIndex(z=>Math.abs(zCam-(z+0.9))<0.08);
+    if(idx>=0 && idx!==S.ultimaPuerta){ S.ultimaPuerta=idx; if(idx%2===0) iniciarCongelamiento(); }
+  }
+}
+let acumMuestras=0;
+
+/* ---------------- bucle principal ---------------- */
+let tPrev=performance.now(), tFI=0, tUI=0, faseBob=0;
+function cuadro(tms){
+  requestAnimationFrame(cuadro);
+  const dt=Math.min((tms-tPrev)/1000,0.1); tPrev=tms;
+  if(!S.pausa){
+    reloj += dt;
+    if(S.fuente==='sim') actualizarSim(dt);
+    else {
+      // con el sensor, la persona 3D camina si hay marcha y se frena si hay congelamiento
+      if(!S.detCong && S.energia>cfg.emin) zCam -= dt*cfg.paso*cfg.bpm/60;
+    }
+    tFI+=dt; if(tFI>=0.25){ tFI=0; calcularFI(); }
+    // la ayuda se apaga cuando ya no hay congelamiento (con 2 s de margen)
+    if(S.cue){
+      const t=ahora();
+      const hayCong = S.fuente==='sim' ? (S.simCong||S.detCong) : S.detCong;
+      if(!hayCong && t>S.cueManualHasta && t-S.cueIni>4){ if(!S._finCue) S._finCue=t; if(t-S._finCue>2){ apagarCue(); S._finCue=0; } }
+      else S._finCue=0;
+    }
+    if(zCam < -LARGO+40){ const salto=Math.floor(300/PERIODO)*PERIODO; zCam+=salto; zLineaSig+=salto; for(const l of lineas) l.position.z+=salto; S.ultimaPuerta=-1; }
+    reciclarLineas();
+  }
+  programarMetronomo();
+  if(S.cue && actx){ const per=60/cfg.bpm; faseLineas=Math.min(1,faseLineas+dt/per); }
+
+  // cámara 3D: balanceo al caminar, temblor al congelarse
+  const congelado = S.fuente==='sim' ? S.simCong : S.detCong;
+  const caminando = !S.pausa && !congelado && (S.fuente==='sim' || S.energia>cfg.emin);
+  if(caminando) faseBob += dt*2*Math.PI*cfg.bpm/60/2;
+  let y=1.6+(caminando?0.025*Math.sin(2*faseBob):0), x=caminando?0.02*Math.sin(faseBob):0;
+  if(congelado && !S.pausa){ y+=0.006*Math.sin(tms*0.036); x+=0.004*Math.sin(tms*0.047); }
+  cam.position.set(x,y,zCam);
+  cam.rotation.set(-0.32,0,0);
+
+  if(S.vista==='3d'){
+    const w=lienzo.clientWidth, h=lienzo.clientHeight;
+    if(S.gafas){
+      cam.updateMatrixWorld(); estereo.update(cam);
+      renderer.setScissorTest(true);
+      renderer.setScissor(0,0,w/2,h); renderer.setViewport(0,0,w/2,h); renderer.render(escena,estereo.cameraL);
+      renderer.setScissor(w/2,0,w/2,h); renderer.setViewport(w/2,0,w/2,h); renderer.render(escena,estereo.cameraR);
+      renderer.setScissorTest(false);
+    } else { renderer.setViewport(0,0,w,h); renderer.render(escena,cam); }
+  } else dibujarCam();
+
+  tUI+=dt; if(tUI>0.2){ tUI=0; actualizarUI(congelado,caminando); }
+}
+function media(a){ return a.length? a.reduce((s,x)=>s+x,0)/a.length : null; }
+function actualizarUI(congelado,caminando){
+  const chip=$('chip');
+  if(S.cue){ chip.className='chip ayuda'; chip.textContent = congelado?'AYUDA ACTIVA · CONGELAMIENTO':'AYUDA ACTIVA'; }
+  else if(congelado){ chip.className='chip bad'; chip.textContent='CONGELAMIENTO'; }
+  else if(caminando){ chip.className='chip ok'; chip.textContent='CAMINANDO'; }
+  else { chip.className='chip quieto'; chip.textContent=S.pausa?'PAUSA':'DETENIDO'; }
+  $('fiNum').textContent=S.fi.toFixed(2);
+  $('fiNum').style.color = S.fi>cfg.umbral ? 'var(--bad)' : 'var(--ok)';
+  const sin=media(S.episodios.filter(e=>!e.ayuda).map(e=>e.dur)), con=media(S.episodios.filter(e=>e.ayuda).map(e=>e.dur));
+  $('stN').textContent=S.episodios.length;
+  $('stSin').textContent= sin==null?'–':sin.toFixed(1)+' s';
+  $('stCon').textContent= con==null?'–':con.toFixed(1)+' s';
+  const lat=media(S.latencias); $('stLat').textContent= lat==null?'–':lat.toFixed(2)+' s';
+  $('stCad').textContent= S.cadencia? Math.round(S.cadencia) : '–';
+  $('stFs').textContent= S.fuente==='sensor' ? (S.fs? Math.round(S.fs):'–') : '50 (sim.)';
+  dibujarGrafica();
+}
+ajustarTam();
+requestAnimationFrame(cuadro);
+</script>
+</body>
+</html>
